@@ -1,0 +1,4 @@
+python-kasa
+python-dotenv
+pytz
+zmanim
