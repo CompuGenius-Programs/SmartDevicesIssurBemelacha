@@ -28,7 +28,11 @@ logging.basicConfig(format='%(asctime)s | %(levelname)s | %(message)s', level=lo
                     datefmt='%a %b %d - %I:%M:%S %p')
 
 
-async def connect_devices(devices_ips):
+async def discover_devices():
+    with open("config.json", "r") as f:
+        config = json.load(f)
+
+    devices_ips = config["devices_ips"]
     logging.info(f"Devices IPs: {devices_ips}")
     configs = []
 
@@ -46,13 +50,19 @@ async def connect_devices(devices_ips):
 
 
 async def main():
+    device_configs = await discover_devices()
+
     while True:
         with open("config.json", "r") as f:
             config = json.load(f)
 
         now = datetime.now(pytz.timezone(timezone))
         if calendar.is_assur_bemelacha(now) or config["testing"]:
-            device_configs = await connect_devices(config["devices_ips"])
+            try:
+                device_configs = await discover_devices()
+            except kasa.exceptions.KasaException:
+                logging.error("Failed to discover devices")
+
             for dev_config in device_configs:
                 device = await Device.connect(config=Device.Config.from_dict(dev_config))
                 if not device.is_on:
