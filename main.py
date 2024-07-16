@@ -1,10 +1,11 @@
 import asyncio
+import logging
 import os
 from datetime import datetime
 
 import pytz
 from dotenv import load_dotenv
-from kasa import Discover
+from kasa import Discover, Device
 from zmanim.util.geo_location import GeoLocation
 from zmanim.zmanim_calendar import ZmanimCalendar
 
@@ -22,21 +23,26 @@ longitude = float(os.getenv("LONGITUDE"))
 location = GeoLocation(location, latitude, longitude, timezone, elevation=15)
 calendar = ZmanimCalendar(geo_location=location)
 
-sleep_mins = 5
+sleep_mins = 30
+logging.basicConfig(format='%(asctime)s | %(levelname)s | %(message)s', level=logging.INFO,
+                    datefmt='%a %b %d - %I:%M %p')
 
 
 async def main():
-    dev = await Discover.discover_single(device_ip, username=username, password=password)
+    device = await Discover.discover_single(device_ip, username=username, password=password)
+    config_dict = device.config.to_dict()
+    await device.update()
+    logging.info(f"Connected to device: {device.alias}")
 
     while True:
         now = datetime.now(pytz.timezone(timezone))
         if calendar.is_assur_bemelacha(now):
-            await dev.update()
+            dev = await Device.connect(config=Device.Config.from_dict(config_dict))
             if not dev.is_on:
                 await dev.turn_on()
-                print("Light turned on.")
+                logging.info("Turned light on.")
             else:
-                print("Light is already on.")
+                logging.info("Light is already on.")
 
         await asyncio.sleep(60 * sleep_mins)
 
