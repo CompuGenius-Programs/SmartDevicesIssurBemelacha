@@ -51,7 +51,7 @@ async def main():
             config = json.load(f)
 
         now = datetime.now(pytz.timezone(timezone))
-        if not calendar.is_assur_bemelacha(now):
+        if calendar.is_assur_bemelacha(now) or config["testing"]:
             device_configs = await connect_devices(config["devices_ips"])
             for dev_config in device_configs:
                 device = await Device.connect(config=Device.Config.from_dict(dev_config))
