@@ -72,18 +72,19 @@ async def need_light(now, config, device_alias):
         logging.info(f"{device_alias} | Config | Need light: True")
         return True
 
-    async with aiohttp.ClientSession() as session:
-        async with session.get(openweathermap) as response:
-            data = await response.json()
-            if response.status != 200:
-                logging.error(f"Failed to get weather data: {data}")
-                return False
-            clouds = data["current"]["clouds"]
-            too_cloudy = clouds > config["cloud_coverage"]
+    if config.get("cloud_coverage"):
+        async with aiohttp.ClientSession() as session:
+            async with session.get(openweathermap) as response:
+                data = await response.json()
+                if response.status != 200:
+                    logging.error(f"Failed to get weather data: {data}")
+                    return False
+                clouds = data["current"]["clouds"]
+                too_cloudy = clouds > config["cloud_coverage"]
 
-    if too_cloudy:
-        logging.info(f"{device_alias} | Cloud Coverage ({clouds}) | Need light: True")
-        return True
+        if too_cloudy:
+            logging.info(f"{device_alias} | Cloud Coverage ({clouds}) | Need light: True")
+            return True
 
     nightfall = calendar.tzais() - timedelta(minutes=config["light_times"]["night"])
     sunrise = calendar.hanetz() + timedelta(minutes=config["light_times"]["morning"])
