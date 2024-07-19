@@ -37,7 +37,7 @@ async def discover_devices():
     with open("config.json", "r") as f:
         config = json.load(f)
 
-    devices_ips = config["devices_ips"]
+    devices_ips = [device["ip"] for device in config["devices"]]
     logging.info(f"Devices IPs: {devices_ips}")
     configs = []
 
@@ -54,37 +54,36 @@ async def discover_devices():
     return configs
 
 
-async def shabbos_or_yom_tov(now, config):
+async def shabbos_or_yom_tov(now, config, checking_now=True):
     issur_now = calendar.is_assur_bemelacha(now)
     issur_soon = calendar.is_assur_bemelacha(now + timedelta(minutes=config["light_times"]["erev"]))
     issur_earlier = calendar.is_assur_bemelacha(now - timedelta(minutes=config["light_times"]["motzei"]))
 
     condition = issur_now or issur_soon or issur_earlier
-    logging.info(f"Currently Shabbos/Yom Tov: {condition}")
+    if checking_now:
+        logging.info(f"Currently Shabbos/Yom Tov: {condition}")
+    else:
+        logging.info(f"Was Shabbos/Yom Tov: {condition}")
     return condition
 
 
-async def need_light(now, config):
+async def need_light(now, config, device_alias):
     if config["always_light"]:
-        logging.info("Config | Need light: True")
+        logging.info(f"{device_alias} | Config | Need light: True")
         return True
 
-    too_cloudy = False
-    try:
-        async with aiohttp.ClientSession() as session:
-            async with session.get(openweathermap) as response:
-                data = await response.json()
-                if response.status != 200:
-                    logging.error(f"Failed to get weather data: {data}")
-                    return False
-                clouds = data["current"]["clouds"]
-                too_cloudy = clouds > config["cloud_coverage"]
-    except Exception as e:
-        logging.error(f"Failed to get weather data: {e}")
+    async with aiohttp.ClientSession() as session:
+        async with session.get(openweathermap) as response:
+            data = await response.json()
+            if response.status != 200:
+                logging.error(f"Failed to get weather data: {data}")
+                return False
+            clouds = data["current"]["clouds"]
+            too_cloudy = clouds > config["cloud_coverage"]
 
     if too_cloudy:
-        logging.info(f"Cloud Coverage ({clouds}) | Need light: True")
-        return False
+        logging.info(f"{device_alias} | Cloud Coverage ({clouds}) | Need light: True")
+        return True
 
     nightfall = calendar.tzais() - timedelta(minutes=config["light_times"]["night"])
     sunrise = calendar.hanetz() + timedelta(minutes=config["light_times"]["morning"])
@@ -96,8 +95,24 @@ async def need_light(now, config):
         sunrise += timedelta(days=1)
 
     is_night = nightfall < now < sunrise
-    logging.info(f"Need light: {is_night}")
+    logging.info(f"{device_alias} | Need light: {is_night}")
     return is_night
+
+
+def turn_on_light(device):
+    if not device.is_on:
+        asyncio.run(device.turn_on())
+        logging.info(f"{device.alias} | Turned light on")
+    else:
+        logging.info(f"{device.alias} | Light is already on")
+
+
+def turn_off_light(device):
+    if device.is_on:
+        asyncio.run(device.turn_off())
+        logging.info(f"{device.alias} | Turned light off")
+    else:
+        logging.info(f"{device.alias} | Light is already off")
 
 
 async def main():
@@ -108,8 +123,7 @@ async def main():
             config = json.load(f)
 
         now = datetime.now(pytz.timezone(timezone))
-        should_have_light = await shabbos_or_yom_tov(now, config) and await need_light(now, config)
-        if should_have_light or config["testing"]:
+        if config["testing"] or await shabbos_or_yom_tov(now, config):
             try:
                 device_configs = await discover_devices()
             except kasa.exceptions.KasaException:
@@ -117,11 +131,21 @@ async def main():
 
             for dev_config in device_configs:
                 device = await Device.connect(config=Device.Config.from_dict(dev_config))
-                if not device.is_on:
-                    await device.turn_on()
-                    logging.info(f"{device.alias} | Turned light on")
+                device_config = config["devices"][device_configs.index(dev_config)]["config"]
+
+                if await need_light(now, device_config, device.alias):
+                    turn_on_light(device)
                 else:
-                    logging.info(f"{device.alias} | Light is already on")
+                    turn_off_light(device)
+        elif await shabbos_or_yom_tov(now - timedelta(minutes=config["sleep_time"]), config, False):
+            try:
+                device_configs = await discover_devices()
+            except kasa.exceptions.KasaException:
+                logging.error("Failed to discover devices")
+
+            for dev_config in device_configs:
+                device = await Device.connect(config=Device.Config.from_dict(dev_config))
+                turn_off_light(device)
 
         sleep_time = config["sleep_time"]
         await asyncio.sleep(sleep_time * 60)
