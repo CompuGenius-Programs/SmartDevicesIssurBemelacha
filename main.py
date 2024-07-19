@@ -136,9 +136,9 @@ async def main():
                 device_config = config["devices"][device_configs.index(dev_config)]["config"]
 
                 if await need_light(now, device_config, device.alias):
-                    turn_on_light(device)
+                    await turn_on_light(device)
                 else:
-                    turn_off_light(device)
+                    await turn_off_light(device)
         elif await shabbos_or_yom_tov(now - timedelta(minutes=config["sleep_time"]), config, False):
             try:
                 device_configs = await discover_devices()
@@ -147,7 +147,7 @@ async def main():
 
             for dev_config in device_configs:
                 device = await Device.connect(config=Device.Config.from_dict(dev_config))
-                turn_off_light(device)
+                await turn_off_light(device)
 
         sleep_time = config["sleep_time"]
         await asyncio.sleep(sleep_time * 60)
