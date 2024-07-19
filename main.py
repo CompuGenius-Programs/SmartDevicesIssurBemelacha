@@ -61,7 +61,8 @@ async def shabbos_or_yom_tov(now, config, checking_now=True):
 
     condition = issur_now or issur_soon or issur_earlier
     if checking_now:
-        logging.info(f"Currently Shabbos/Yom Tov: {condition}")
+        logging.info(f"Currently Shabbos/Yom Tov: {condition} | "
+                     f"Issur Now: {issur_now} | Issur Soon: {issur_soon} | Issur Earlier: {issur_earlier}")
     else:
         logging.info(f"Was Shabbos/Yom Tov: {condition}")
     return condition
@@ -100,17 +101,17 @@ async def need_light(now, config, device_alias):
     return is_night
 
 
-def turn_on_light(device):
+async def turn_on_light(device):
     if not device.is_on:
-        asyncio.run(device.turn_on())
+        await device.turn_on()
         logging.info(f"{device.alias} | Turned light on")
     else:
         logging.info(f"{device.alias} | Light is already on")
 
 
-def turn_off_light(device):
+async def turn_off_light(device):
     if device.is_on:
-        asyncio.run(device.turn_off())
+        await device.turn_off()
         logging.info(f"{device.alias} | Turned light off")
     else:
         logging.info(f"{device.alias} | Light is already off")
