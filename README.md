@@ -28,7 +28,7 @@ LONGITUDE=-74.005974
 {
   "devices": [
     {
-      "name": "Bedroom", // Optional: The name of the device
+      "name": "Upstairs Bathroom", // Optional: The name of the device
       "ip": "192.168.0.186", // The IP address of the device
       "config": {
         "always_light": false, // If the light should always be on
@@ -41,7 +41,7 @@ LONGITUDE=-74.005974
       }
     },
     {
-      "name": "Living Room",
+      "name": "Downstairs Bathroom",
       "ip": "192.168.0.91",
       "config": {
         "always_light": true
