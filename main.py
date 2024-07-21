@@ -9,6 +9,7 @@ import kasa.exceptions
 import pytz
 from dotenv import load_dotenv
 from kasa import Discover, Device
+from zmanim.hebrew_calendar.jewish_calendar import JewishCalendar
 from zmanim.util.geo_location import GeoLocation
 from zmanim.zmanim_calendar import ZmanimCalendar
 
@@ -68,7 +69,7 @@ async def shabbos_or_yom_tov(now, config, checking_now=True):
     return condition
 
 
-async def need_light(now, config, device_alias):
+async def need_light(now, jewish_calendar, config, device_alias):
     if config["always_light"]:
         logging.info(f"{device_alias} | Config | Need light: True")
         return True
@@ -87,7 +88,10 @@ async def need_light(now, config, device_alias):
             logging.info(f"{device_alias} | Cloud Coverage ({clouds}) | Need light: True")
             return True
 
-    nightfall = calendar.tzais() - timedelta(minutes=config["light_times"]["night"])
+    if jewish_calendar.is_tomorrow_assur_bemelacha():
+        nightfall = calendar.plag_hamincha() - timedelta(minutes=config["light_times"]["erev"])
+    else:
+        nightfall = calendar.tzais() - timedelta(minutes=config["light_times"]["night"])
     sunrise = calendar.hanetz() + timedelta(minutes=config["light_times"]["morning"])
     midnight = now.replace(hour=0, minute=0, second=0, microsecond=0)
 
@@ -117,6 +121,33 @@ async def turn_off_light(device):
         logging.info(f"{device.alias} | Light is already off")
 
 
+async def handle_light_timers(now, jewish_calendar, config, device_configs):
+    try:
+        device_configs = await discover_devices()
+    except kasa.exceptions.KasaException:
+        logging.error("Failed to discover devices")
+
+    if jewish_calendar.is_tomorrow_assur_bemelacha():
+        plag_hamincha_time = calendar.plag_hamincha() - timedelta(minutes=config["light_times"]["erev"])
+        time_until_plag_hamincha = (plag_hamincha_time - now).total_seconds()
+
+        if 0 <= time_until_plag_hamincha < config["sleep_time"] * 60:
+            await asyncio.sleep(time_until_plag_hamincha)
+            for dev_config in device_configs:
+                device = await Device.connect(config=Device.Config.from_dict(dev_config))
+                await turn_on_light(device)
+
+    elif calendar.is_assur_bemelacha(now):
+        tzais_time = calendar.tzais() + timedelta(minutes=config["light_times"]["motzei"])
+        time_until_tzais = (tzais_time - now).total_seconds()
+
+        if 0 <= time_until_tzais < config["sleep_time"] * 60:
+            await asyncio.sleep(time_until_tzais)
+            for dev_config in device_configs:
+                device = await Device.connect(config=Device.Config.from_dict(dev_config))
+                await turn_off_light(device)
+
+
 async def main():
     device_configs = await discover_devices()
 
@@ -125,6 +156,7 @@ async def main():
             config = json.load(f)
 
         now = datetime.now(pytz.timezone(timezone))
+        jewish_calendar = JewishCalendar(now.date())
         if config["testing"] or await shabbos_or_yom_tov(now, config):
             try:
                 device_configs = await discover_devices()
@@ -135,19 +167,12 @@ async def main():
                 device = await Device.connect(config=Device.Config.from_dict(dev_config))
                 device_config = config["devices"][device_configs.index(dev_config)]["config"]
 
-                if await need_light(now, device_config, device.alias):
+                if await need_light(now, jewish_calendar, device_config, device.alias):
                     await turn_on_light(device)
                 else:
                     await turn_off_light(device)
-        elif await shabbos_or_yom_tov(now - timedelta(minutes=config["sleep_time"]), config, False):
-            try:
-                device_configs = await discover_devices()
-            except kasa.exceptions.KasaException:
-                logging.error("Failed to discover devices")
 
-            for dev_config in device_configs:
-                device = await Device.connect(config=Device.Config.from_dict(dev_config))
-                await turn_off_light(device)
+        await handle_light_timers(now, jewish_calendar, config, device_configs)
 
         sleep_time = config["sleep_time"]
         await asyncio.sleep(sleep_time * 60)
