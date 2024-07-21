@@ -55,14 +55,12 @@ async def discover_devices():
     return configs
 
 
-async def shabbos_or_yom_tov(now, config):
-    issur_now = calendar.is_assur_bemelacha(now)
-    issur_soon = calendar.is_assur_bemelacha(now + timedelta(minutes=config["light_times"]["erev"]))
-    issur_earlier = calendar.is_assur_bemelacha(now - timedelta(minutes=config["light_times"]["motzei"]))
-
-    condition = issur_now or issur_soon or issur_earlier
-    logging.info(f"Currently Shabbos/Yom Tov: {condition} | "
-                 f"Issur Now: {issur_now} | Issur Soon: {issur_soon} | Issur Earlier: {issur_earlier}")
+async def shabbos_or_yom_tov(now, jewish_calendar, config):
+    erev_time = calendar.plag_hamincha() - timedelta(minutes=config["light_times"]["erev"])
+    motzei_time = calendar.tzais() + timedelta(minutes=config["light_times"]["motzei"])
+    condition = (now <= motzei_time and jewish_calendar.is_assur_bemelacha()) or (
+            now >= erev_time and jewish_calendar.is_tomorrow_assur_bemelacha())
+    logging.info(f"Currently Shabbos/Yom Tov: {condition}")
     return condition
 
 
@@ -155,7 +153,7 @@ async def main():
         now = datetime.now(pytz.timezone(timezone))
         calendar.date = now.date()
         jewish_calendar = JewishCalendar(now.date())
-        if config["testing"] or await shabbos_or_yom_tov(now, config):
+        if config["testing"] or await shabbos_or_yom_tov(now, jewish_calendar, config):
             try:
                 device_configs = await discover_devices()
             except kasa.exceptions.KasaException:
