@@ -55,17 +55,14 @@ async def discover_devices():
     return configs
 
 
-async def shabbos_or_yom_tov(now, config, checking_now=True):
+async def shabbos_or_yom_tov(now, config):
     issur_now = calendar.is_assur_bemelacha(now)
     issur_soon = calendar.is_assur_bemelacha(now + timedelta(minutes=config["light_times"]["erev"]))
     issur_earlier = calendar.is_assur_bemelacha(now - timedelta(minutes=config["light_times"]["motzei"]))
 
     condition = issur_now or issur_soon or issur_earlier
-    if checking_now:
-        logging.info(f"Currently Shabbos/Yom Tov: {condition} | "
-                     f"Issur Now: {issur_now} | Issur Soon: {issur_soon} | Issur Earlier: {issur_earlier}")
-    else:
-        logging.info(f"Was Shabbos/Yom Tov: {condition}")
+    logging.info(f"Currently Shabbos/Yom Tov: {condition} | "
+                 f"Issur Now: {issur_now} | Issur Soon: {issur_soon} | Issur Earlier: {issur_earlier}")
     return condition
 
 
