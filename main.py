@@ -153,6 +153,7 @@ async def main():
             config = json.load(f)
 
         now = datetime.now(pytz.timezone(timezone))
+        calendar.date = now.date()
         jewish_calendar = JewishCalendar(now.date())
         if config["testing"] or await shabbos_or_yom_tov(now, config):
             try:
