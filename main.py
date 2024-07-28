@@ -52,9 +52,10 @@ async def discover_devices():
         configs.append(device.config.to_dict())
         await device.update()
         logging.info(f"{device.alias} | Connected to device")
-        if device.alias != config["devices"][devices_ips.index(device_ip)]["name"]:
-            logging.warning(
-                f"{device.alias} | Device name does not match config - {config['devices'][devices_ips.index(device_ip)]['name']}")
+        if config["devices"][devices_ips.index(device_ip)].get("name"):
+            if device.alias != config["devices"][devices_ips.index(device_ip)]["name"]:
+                logging.warning(
+                    f"{device.alias} | Device name does not match config - {config['devices'][devices_ips.index(device_ip)]['name']}")
 
     return configs
 

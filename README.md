@@ -28,10 +28,11 @@ LONGITUDE=-74.005974
 {
   "devices": [
     {
-      "name": "Upstairs Bathroom", // Optional: The name of the device
+      "name": "Upstairs Bathroom Light", // Optional: The name of the device for comparing to the Kasa app
       "ip": "192.168.0.186", // The IP address of the device
       "config": {
         "always_light": false, // If the light should always be on
+        
         // Only applicable if always_light is false
         "cloud_coverage": 50, // Optional: The cloud coverage percentage to turn on the light
         "light_times": {
@@ -41,7 +42,7 @@ LONGITUDE=-74.005974
       }
     },
     {
-      "name": "Downstairs Bathroom",
+      "name": "Downstairs Bathroom Light",
       "ip": "192.168.0.91",
       "config": {
         "always_light": true
