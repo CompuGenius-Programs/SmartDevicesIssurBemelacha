@@ -51,6 +51,8 @@ async def discover_devices():
         configs.append(device.config.to_dict())
         await device.update()
         logging.info(f"{device.alias} | Connected to device")
+        if device.alias != config["devices"][devices_ips.index(device_ip)]["name"]:
+            logging.warning(f"{device.alias} | Device name does not match config")
 
     return configs
 
@@ -127,6 +129,7 @@ async def handle_light_timers(now, jewish_calendar, config, device_configs):
         time_until_plag_hamincha = (plag_hamincha_time - now).total_seconds()
 
         if 0 <= time_until_plag_hamincha < config["sleep_time"] * 60:
+            logging.info(f"Sleeping until Plag Hamincha ({plag_hamincha_time})")
             await asyncio.sleep(time_until_plag_hamincha)
             for dev_config in device_configs:
                 device = await Device.connect(config=Device.Config.from_dict(dev_config))
@@ -137,6 +140,7 @@ async def handle_light_timers(now, jewish_calendar, config, device_configs):
         time_until_tzais = (tzais_time - now).total_seconds()
 
         if 0 <= time_until_tzais < config["sleep_time"] * 60:
+            logging.info(f"Sleeping until Tzais ({tzais_time})")
             await asyncio.sleep(time_until_tzais)
             for dev_config in device_configs:
                 device = await Device.connect(config=Device.Config.from_dict(dev_config))
