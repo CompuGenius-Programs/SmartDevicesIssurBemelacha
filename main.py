@@ -30,8 +30,9 @@ calendar = ZmanimCalendar(geo_location=location)
 
 openweathermap = f"https://api.openweathermap.org/data/3.0/onecall?lat={latitude}&lon={longitude}&appid={openweathermap_api_key}"
 
+time_format = "%a %b %d - %I:%M:%S %p"
 logging.basicConfig(format='%(asctime)s | %(levelname)s | %(message)s', level=logging.INFO,
-                    datefmt='%a %b %d - %I:%M:%S %p')
+                    datefmt=time_format)
 
 
 async def discover_devices():
@@ -52,7 +53,8 @@ async def discover_devices():
         await device.update()
         logging.info(f"{device.alias} | Connected to device")
         if device.alias != config["devices"][devices_ips.index(device_ip)]["name"]:
-            logging.warning(f"{device.alias} | Device name does not match config - {config['devices'][devices_ips.index(device_ip)]['name']}")
+            logging.warning(
+                f"{device.alias} | Device name does not match config - {config['devices'][devices_ips.index(device_ip)]['name']}")
 
     return configs
 
@@ -60,11 +62,6 @@ async def discover_devices():
 async def shabbos_or_yom_tov(now, jewish_calendar, config):
     erev_time = calendar.plag_hamincha() - timedelta(minutes=config["light_times"]["erev"])
     motzei_time = calendar.tzais() + timedelta(minutes=config["light_times"]["motzei"])
-    logging.info(f"Plag Time: {calendar.plag_hamincha()}")
-    logging.info(f"Erev Time: {erev_time}")
-    logging.info(f"Now: {now}")
-    logging.info(f"Tzais Time: {calendar.tzais()}")
-    logging.info(f"Motzei Time: {motzei_time}")
     condition = (now <= motzei_time and jewish_calendar.is_assur_bemelacha()) or (
             now >= erev_time and jewish_calendar.is_tomorrow_assur_bemelacha())
     logging.info(f"Currently Shabbos/Yom Tov: {condition}")
@@ -103,7 +100,8 @@ async def need_light(now, jewish_calendar, config, device_config, device_alias):
         sunrise += timedelta(days=1)
 
     is_night = nightfall < now < sunrise
-    logging.info(f"{device_alias} | Between Nightfall ({nightfall}) and Sunrise ({sunrise}) | Need light: {is_night}")
+    logging.info(
+        f"{device_alias} | Nightfall ({nightfall.strftime(time_format)}), Sunrise ({sunrise.strftime(time_format)}) | Need light: {is_night}")
     return is_night
 
 
@@ -129,26 +127,23 @@ async def handle_light_timers(now, jewish_calendar, config, device_configs):
     except kasa.exceptions.KasaException:
         logging.error("Failed to discover devices")
 
-    logging.info(f"Is Assur Bemelacha: {jewish_calendar.is_assur_bemelacha()}")
-    logging.info(f"Is Assur Bemelacha With Offset: {calendar.is_assur_bemelacha(now - timedelta(minutes=config['light_times']['motzei']))}")
-
     if jewish_calendar.is_tomorrow_assur_bemelacha():
         plag_hamincha_time = calendar.plag_hamincha() - timedelta(minutes=config["light_times"]["erev"])
         time_until_plag_hamincha = (plag_hamincha_time - now).total_seconds()
 
         if 0 <= time_until_plag_hamincha < config["sleep_time"] * 60:
-            logging.info(f"Sleeping until Plag Hamincha ({plag_hamincha_time})")
+            logging.info(f"Sleeping until Plag Hamincha ({plag_hamincha_time.strftime(time_format)})")
             await asyncio.sleep(time_until_plag_hamincha)
             for dev_config in device_configs:
                 device = await Device.connect(config=Device.Config.from_dict(dev_config))
                 await turn_on_light(device)
 
-    elif calendar.is_assur_bemelacha(now - timedelta(minutes=config["light_times"]["motzei"])):
+    elif calendar.is_assur_bemelacha(now):
         tzais_time = calendar.tzais() + timedelta(minutes=config["light_times"]["motzei"])
         time_until_tzais = (tzais_time - now).total_seconds()
 
         if 0 <= time_until_tzais < config["sleep_time"] * 60:
-            logging.info(f"Sleeping until Tzais ({tzais_time})")
+            logging.info(f"Sleeping until Tzais ({tzais_time.strftime(time_format)})")
             await asyncio.sleep(time_until_tzais)
             for dev_config in device_configs:
                 device = await Device.connect(config=Device.Config.from_dict(dev_config))
