@@ -130,7 +130,7 @@ async def handle_light_timers(now, jewish_calendar, config, device_configs):
         logging.error("Failed to discover devices")
 
     logging.info(f"Is Assur Bemelacha: {jewish_calendar.is_assur_bemelacha()}")
-    logging.info(f"Is Assur Bemelacha With Offset: {calendar.is_assur_bemelacha(now - timedelta(minutes=config["light_times"]["motzei"]))}")
+    logging.info(f"Is Assur Bemelacha With Offset: {calendar.is_assur_bemelacha(now - timedelta(minutes=config['light_times']['motzei']))}")
 
     if jewish_calendar.is_tomorrow_assur_bemelacha():
         plag_hamincha_time = calendar.plag_hamincha() - timedelta(minutes=config["light_times"]["erev"])
