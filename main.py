@@ -80,7 +80,7 @@ async def need_light(now, jewish_calendar, config, device_config, device_alias):
                 too_cloudy = clouds > device_config["cloud_coverage"]
 
         if too_cloudy:
-            logging.info(f"{device_alias} | Cloud Coverage ({clouds}) | Need light: True")
+            logging.info(f"{device_alias} | Cloud Coverage ({clouds}%) | Need light: True")
             return True
 
     if jewish_calendar.is_tomorrow_assur_bemelacha():
@@ -96,7 +96,7 @@ async def need_light(now, jewish_calendar, config, device_config, device_alias):
         sunrise += timedelta(days=1)
 
     is_night = nightfall < now < sunrise
-    logging.info(f"{device_alias} | Need light: {is_night}")
+    logging.info(f"{device_alias} | Between Nightfall ({nightfall}) and Sunrise ({sunrise}) | Need light: {is_night}")
     return is_night
 
 
