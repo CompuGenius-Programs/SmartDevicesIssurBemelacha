@@ -129,6 +129,9 @@ async def handle_light_timers(now, jewish_calendar, config, device_configs):
     except kasa.exceptions.KasaException:
         logging.error("Failed to discover devices")
 
+    logging.info(f"Is Assur Bemelacha: {jewish_calendar.is_assur_bemelacha()}")
+    logging.info(f"Is Assur Bemelacha With Offset: {calendar.is_assur_bemelacha(now - timedelta(minutes=config["light_times"]["motzei"]))}")
+
     if jewish_calendar.is_tomorrow_assur_bemelacha():
         plag_hamincha_time = calendar.plag_hamincha() - timedelta(minutes=config["light_times"]["erev"])
         time_until_plag_hamincha = (plag_hamincha_time - now).total_seconds()
@@ -140,7 +143,7 @@ async def handle_light_timers(now, jewish_calendar, config, device_configs):
                 device = await Device.connect(config=Device.Config.from_dict(dev_config))
                 await turn_on_light(device)
 
-    elif calendar.is_assur_bemelacha(now):
+    elif calendar.is_assur_bemelacha(now - timedelta(minutes=config["light_times"]["motzei"])):
         tzais_time = calendar.tzais() + timedelta(minutes=config["light_times"]["motzei"])
         time_until_tzais = (tzais_time - now).total_seconds()
 
