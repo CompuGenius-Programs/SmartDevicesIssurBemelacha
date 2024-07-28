@@ -64,12 +64,12 @@ async def shabbos_or_yom_tov(now, jewish_calendar, config):
     return condition
 
 
-async def need_light(now, jewish_calendar, config, device_alias):
-    if config["always_light"]:
+async def need_light(now, jewish_calendar, config, device_config, device_alias):
+    if device_config["always_light"]:
         logging.info(f"{device_alias} | Config | Need light: True")
         return True
 
-    if config.get("cloud_coverage"):
+    if device_config.get("cloud_coverage"):
         async with aiohttp.ClientSession() as session:
             async with session.get(openweathermap) as response:
                 data = await response.json()
@@ -77,7 +77,7 @@ async def need_light(now, jewish_calendar, config, device_alias):
                     logging.error(f"Failed to get weather data: {data}")
                     return False
                 clouds = data["current"]["clouds"]
-                too_cloudy = clouds > config["cloud_coverage"]
+                too_cloudy = clouds > device_config["cloud_coverage"]
 
         if too_cloudy:
             logging.info(f"{device_alias} | Cloud Coverage ({clouds}) | Need light: True")
@@ -86,8 +86,8 @@ async def need_light(now, jewish_calendar, config, device_alias):
     if jewish_calendar.is_tomorrow_assur_bemelacha():
         nightfall = calendar.plag_hamincha() - timedelta(minutes=config["light_times"]["erev"])
     else:
-        nightfall = calendar.tzais() - timedelta(minutes=config["light_times"]["night"])
-    sunrise = calendar.hanetz() + timedelta(minutes=config["light_times"]["morning"])
+        nightfall = calendar.tzais() - timedelta(minutes=device_config["light_times"]["night"])
+    sunrise = calendar.hanetz() + timedelta(minutes=device_config["light_times"]["morning"])
     midnight = now.replace(hour=0, minute=0, second=0, microsecond=0)
 
     if midnight <= now < sunrise:
@@ -163,7 +163,7 @@ async def main():
                 device = await Device.connect(config=Device.Config.from_dict(dev_config))
                 device_config = config["devices"][device_configs.index(dev_config)]["config"]
 
-                if await need_light(now, jewish_calendar, device_config, device.alias):
+                if await need_light(now, jewish_calendar, config, device_config, device.alias):
                     await turn_on_light(device)
                 else:
                     await turn_off_light(device)
