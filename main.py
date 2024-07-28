@@ -60,8 +60,10 @@ async def discover_devices():
 async def shabbos_or_yom_tov(now, jewish_calendar, config):
     erev_time = calendar.plag_hamincha() - timedelta(minutes=config["light_times"]["erev"])
     motzei_time = calendar.tzais() + timedelta(minutes=config["light_times"]["motzei"])
+    logging.info(f"Plag Time: {calendar.plag_hamincha()}")
     logging.info(f"Erev Time: {erev_time}")
     logging.info(f"Now: {now}")
+    logging.info(f"Tzais Time: {calendar.tzais()}")
     logging.info(f"Motzei Time: {motzei_time}")
     condition = (now <= motzei_time and jewish_calendar.is_assur_bemelacha()) or (
             now >= erev_time and jewish_calendar.is_tomorrow_assur_bemelacha())
