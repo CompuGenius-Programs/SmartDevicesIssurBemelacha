@@ -36,8 +36,8 @@ LONGITUDE=-74.005974
         // Only applicable if always_light is false
         "cloud_coverage": 50, // Optional: The cloud coverage percentage to turn on the light
         "light_times": {
-          "morning": 60, // Required: How long after sunrise on Shabbos/Yom Tov the light should turn off
-          "night": 30 // Required: How long before nightfall on Shabbos/Yom Tov the light should turn on
+          "morning": 60, // Required: How long after Hanetz on Shabbos/Yom Tov the light should turn off
+          "night": 30 // Required: How long before Tzais on Shabbos/Yom Tov the light should turn on
         }
       }
     },
@@ -50,8 +50,8 @@ LONGITUDE=-74.005974
     }
   ],
   "light_times": {
-    "erev": 60, // How long before sunset on Erev Shabbos/Yom Tov the lights should turn on
-    "motzei": 60 // How long after nightfall on Motzei Shabbos/Yom Tov the lights should turn off
+    "erev": 60, // How long before Plag Hamincha on Erev Shabbos/Yom Tov the lights should turn on
+    "motzei": 60 // How long after Tzais on Motzei Shabbos/Yom Tov the lights should turn off
   },
   "sleep_time": 30, // How often the script should check the time
   "testing": false // If the script should run in testing mode (bypasses Shabbos/Yom Tov checks)
