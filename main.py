@@ -31,8 +31,7 @@ calendar = ZmanimCalendar(geo_location=location)
 openweathermap = f"https://api.openweathermap.org/data/3.0/onecall?lat={latitude}&lon={longitude}&appid={openweathermap_api_key}"
 
 time_format = "%a %b %d - %I:%M:%S %p"
-logging.basicConfig(format='%(asctime)s | %(levelname)s | %(message)s', level=logging.INFO,
-                    datefmt=time_format)
+logging.basicConfig(format='%(asctime)s | %(levelname)s | %(message)s', level=logging.INFO, datefmt=time_format)
 
 
 async def discover_devices():
@@ -71,7 +70,25 @@ async def shabbos_or_yom_tov(now, jewish_calendar, config):
 
 async def need_light(now, jewish_calendar, config, device_config, device_alias):
     if device_config["always_light"]:
-        logging.info(f"{device_alias} | Config | Need light: True")
+        logging.info(f"{device_alias} | Always On: True | Need light: True")
+        return True
+
+    if jewish_calendar.is_tomorrow_assur_bemelacha():
+        nightfall = calendar.plag_hamincha() - timedelta(minutes=config["light_times"]["erev"])
+    else:
+        nightfall = calendar.tzais() - timedelta(minutes=device_config["light_times"]["night"])
+    sunrise = calendar.hanetz() + timedelta(minutes=device_config["light_times"]["morning"])
+    midnight = now.replace(hour=0, minute=0, second=0, microsecond=0)
+
+    if midnight <= now < sunrise:
+        nightfall -= timedelta(days=1)
+    elif sunrise <= now:
+        sunrise += timedelta(days=1)
+
+    is_night = nightfall < now < sunrise
+    if is_night:
+        logging.info(
+            f"{device_alias} | Nightfall ({nightfall.strftime(time_format)}), Sunrise ({sunrise.strftime(time_format)}) | Need light: True")
         return True
 
     if device_config.get("cloud_coverage"):
@@ -88,22 +105,9 @@ async def need_light(now, jewish_calendar, config, device_config, device_alias):
             logging.info(f"{device_alias} | Cloud Coverage ({clouds}%) | Need light: True")
             return True
 
-    if jewish_calendar.is_tomorrow_assur_bemelacha():
-        nightfall = calendar.plag_hamincha() - timedelta(minutes=config["light_times"]["erev"])
-    else:
-        nightfall = calendar.tzais() - timedelta(minutes=device_config["light_times"]["night"])
-    sunrise = calendar.hanetz() + timedelta(minutes=device_config["light_times"]["morning"])
-    midnight = now.replace(hour=0, minute=0, second=0, microsecond=0)
-
-    if midnight <= now < sunrise:
-        nightfall -= timedelta(days=1)
-    elif sunrise <= now:
-        sunrise += timedelta(days=1)
-
-    is_night = nightfall < now < sunrise
     logging.info(
-        f"{device_alias} | Nightfall ({nightfall.strftime(time_format)}), Sunrise ({sunrise.strftime(time_format)}) | Need light: {is_night}")
-    return is_night
+        f"{device_alias} | Always On: False - Cloud Coverage ({clouds}%) - Nightfall ({nightfall.strftime(time_format)}), Sunrise ({sunrise.strftime(time_format)}) | Need light: False")
+    return False
 
 
 async def turn_on_light(device):
@@ -139,7 +143,7 @@ async def handle_light_timers(now, jewish_calendar, config, device_configs):
                 device = await Device.connect(config=Device.Config.from_dict(dev_config))
                 await turn_on_light(device)
 
-    elif calendar.is_assur_bemelacha(now):
+    elif jewish_calendar.is_assur_bemelacha():
         tzais_time = calendar.tzais() + timedelta(minutes=config["light_times"]["motzei"])
         time_until_tzais = (tzais_time - now).total_seconds()
 
