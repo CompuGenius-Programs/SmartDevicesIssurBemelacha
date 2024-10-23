@@ -2,3 +2,5 @@ python-kasa
 python-dotenv
 pytz
 zmanim
+fastapi
+uvicorn
