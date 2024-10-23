@@ -1,10 +1,11 @@
 import json
 import os
 
-import uvicorn
 from dotenv import load_dotenv
-from fastapi import FastAPI, HTTPException, Query
+from fastapi import FastAPI, HTTPException
 from kasa import Discover
+from pydantic import BaseModel
+import uvicorn
 
 load_dotenv()
 
@@ -12,6 +13,10 @@ username = os.getenv("USERNAME")
 password = os.getenv("PASSWORD")
 
 app = FastAPI()
+
+
+class DeviceToggleRequest(BaseModel):
+    device_name: str
 
 
 async def get_device_by_name(device_name: str):
@@ -28,9 +33,9 @@ async def get_device_by_name(device_name: str):
     raise HTTPException(status_code=404, detail="Device not found")
 
 
-@app.get("/toggle_device")
-async def toggle_device(device_name: str = Query(..., description="Name of the device to toggle")):
-    device = await get_device_by_name(device_name)
+@app.post("/toggle_device")
+async def toggle_device(request: DeviceToggleRequest):
+    device = await get_device_by_name(request.device_name)
     await device.update()
     if device.is_on:
         await device.turn_off()
