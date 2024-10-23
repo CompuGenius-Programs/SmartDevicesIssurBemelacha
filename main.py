@@ -13,6 +13,8 @@ from zmanim.hebrew_calendar.jewish_calendar import JewishCalendar
 from zmanim.util.geo_location import GeoLocation
 from zmanim.zmanim_calendar import ZmanimCalendar
 
+from kasa_device import KasaDevice
+
 load_dotenv()
 
 username = os.getenv("USERNAME")
@@ -38,25 +40,27 @@ async def discover_devices():
     with open("config.json", "r") as f:
         config = json.load(f)
 
-    devices_ips = [device["ip"] for device in config["devices"]]
-    logging.info(f"Devices IPs: {devices_ips}")
-    configs = []
+    devices = [device for device in config["devices"]]
+    logging.info(f"Devices IPs: {[device['ip'] for device in devices]}")
+    discovered_devices = []
 
-    for device_ip in devices_ips:
-        try:
-            device = await Discover.discover_single(device_ip, username=username, password=password)
-        except kasa.exceptions.KasaException:
-            logging.error(f"{device_ip} | Could not connect to device")
-            continue
-        configs.append(device.config.to_dict())
-        await device.update()
-        logging.info(f"{device.alias} | Connected to device")
-        if config["devices"][devices_ips.index(device_ip)].get("name"):
-            if device.alias != config["devices"][devices_ips.index(device_ip)]["name"]:
-                logging.warning(
-                    f"{device.alias} | Device name does not match config - {config['devices'][devices_ips.index(device_ip)]['name']}")
+    for device in devices:
+        discovered = None
 
-    return configs
+        if device["type"] == "kasa":
+            discovered = await KasaDevice().discover(device["ip"], username, password)
+            if not discovered:
+                logging.error(f"{device['ip']} | Could not connect to device")
+                continue
+
+        discovered_devices.append(discovered)
+        logging.info(f"{discovered.device_name} | Connected to device")
+
+        name = device.get("name")
+        if name and device.device_name != name:
+            logging.warning(f"{device.device_name} | Device name does not match config - {name}")
+
+    return discovered_devices
 
 
 async def shabbos_or_yom_tov(now, jewish_calendar, config):
@@ -111,19 +115,19 @@ async def need_light(now, jewish_calendar, config, device_config, device_alias):
 
 
 async def turn_on_light(device):
-    if not device.is_on:
-        await device.turn_on()
-        logging.info(f"{device.alias} | Turned light on")
+    turned_on = await device.turn_on()
+    if turned_on:
+        logging.info(f"{device.device_name} | Turned light on")
     else:
-        logging.info(f"{device.alias} | Light is already on")
+        logging.info(f"{device.device_name} | Light is already on")
 
 
 async def turn_off_light(device):
-    if device.is_on:
-        await device.turn_off()
-        logging.info(f"{device.alias} | Turned light off")
+    turned_off = await device.turn_off()
+    if turned_off:
+        logging.info(f"{device.device_name} | Turned light off")
     else:
-        logging.info(f"{device.alias} | Light is already off")
+        logging.info(f"{device.device_name} | Light is already off")
 
 
 async def handle_light_timers(now, jewish_calendar, config, device_configs):
@@ -140,7 +144,7 @@ async def handle_light_timers(now, jewish_calendar, config, device_configs):
             logging.info(f"Sleeping until Plag Hamincha ({plag_hamincha_time.strftime(time_format)})")
             await asyncio.sleep(time_until_plag_hamincha)
             for dev_config in device_configs:
-                device = await Device.connect(config=Device.Config.from_dict(dev_config))
+                device = await KasaDevice(dev_config).connect()
                 await turn_on_light(device)
 
     elif jewish_calendar.is_assur_bemelacha():
@@ -151,7 +155,7 @@ async def handle_light_timers(now, jewish_calendar, config, device_configs):
             logging.info(f"Sleeping until Tzais ({tzais_time.strftime(time_format)})")
             await asyncio.sleep(time_until_tzais)
             for dev_config in device_configs:
-                device = await Device.connect(config=Device.Config.from_dict(dev_config))
+                device = await KasaDevice(dev_config).connect()
                 await turn_off_light(device)
 
 
@@ -172,10 +176,10 @@ async def main():
                 logging.error("Failed to discover devices")
 
             for dev_config in device_configs:
-                device = await Device.connect(config=Device.Config.from_dict(dev_config))
+                device = await KasaDevice(dev_config).connect()
                 device_config = config["devices"][device_configs.index(dev_config)]["config"]
 
-                if await need_light(now, jewish_calendar, config, device_config, device.alias):
+                if await need_light(now, jewish_calendar, config, device_config, device.device_name):
                     await turn_on_light(device)
                 else:
                     await turn_off_light(device)
