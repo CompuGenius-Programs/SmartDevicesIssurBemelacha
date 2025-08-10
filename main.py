@@ -1,13 +1,11 @@
-python
+import aiohttp
 import asyncio
 import json
+import kasa.exceptions
 import logging
 import os
-from datetime import datetime, timedelta
-
-import aiohttp
-import kasa.exceptions
 import pytz
+from datetime import datetime, timedelta
 from dotenv import load_dotenv
 from kasa import Discover, Device
 from zmanim.hebrew_calendar.jewish_calendar import JewishCalendar
@@ -222,7 +220,8 @@ async def main():
                         continue
                     device_config = config["devices"][device_configs.index(dev_config)]["config"]
 
-                    if await need_light(now, jewish_calendar, config, device_config, getattr(device, "alias", "Unknown device")):
+                    if await need_light(now, jewish_calendar, config, device_config,
+                                        getattr(device, "alias", "Unknown device")):
                         await turn_on_light(device)
                     else:
                         await turn_off_light(device)
